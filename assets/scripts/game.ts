@@ -273,7 +273,7 @@ export default class Game extends cc.Component {
     moveGem(gem: Gem, moveTo: cc.Vec2) {
         let moveFrom = gem.getCoords();
         cc.tween(gem)
-            .to(0.5, { position: this.gameMap.getTilePosition(moveTo) })
+            .to(0.5, { position: cc.v3(this.gameMap.getTilePosition(moveTo), 0) })
             // Ломает анимацию!
             // .call(() => { this.makeNextMove = true })
             .start();
