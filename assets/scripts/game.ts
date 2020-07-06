@@ -263,13 +263,15 @@ export default class Game extends cc.Component {
 
     selectGem(targetGem: Gem) {
         this.targetGem = targetGem;
+        this.targetGem.zIndex = 1;
         // Выделенный гем увеличивается
-        cc.tween(targetGem).to(0.3, { scale: 1.5 }).start();
+        cc.tween(targetGem).to(0.3, { scale: 1.3 }).start();
     }
 
     unselectGem() {
         // Выделенный гем уменьшается
         cc.tween(this.targetGem).to(0.3, { scale: 1 }).start();
+        this.targetGem.zIndex = 0;
         this.targetGem = null;
     }
 
