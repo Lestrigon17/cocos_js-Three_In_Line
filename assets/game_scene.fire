@@ -274,8 +274,8 @@
       "__type__": "TypedArray",
       "ctor": "Float64Array",
       "array": [
-        -285.506,
-        -274.137,
+        -280,
+        -280,
         0,
         0,
         0,
@@ -445,8 +445,9 @@
     },
     "_enabled": true,
     "spriteFrame": {
-      "__uuid__": "dbdaf2c0-099e-4345-b0e0-54a3dca00a73"
+      "__uuid__": "bfd5c2ab-2219-431a-a098-cfca64b35cf7"
     },
+    "animationSpeed": 0.5,
     "_id": "ecwVbEuQ1Hh5wDhnlESg5W"
   }
 ]
