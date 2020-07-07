@@ -23,6 +23,20 @@ class Gem extends cc.Node {
     }
 }
 
+class Bonus extends Gem { }
+
+class Horizontal extends Bonus {
+
+}
+
+class Vertical extends Bonus {
+
+}
+
+class Rainbow extends Bonus {
+
+}
+
 // Цвета гемов, имя ноды используется для сравнения цветов
 class Blue extends Gem {
     constructor() {
@@ -109,7 +123,7 @@ class Map {
         }
     }
 
-    // Проверка горизонтальных и вертикальных комбинаций, горизонтальные в приоритете
+    // Проверка горизонтальных и вертикальных комбинаций
     checkCombinations(coords: cc.Vec2) {
         let horizontal = this.checkDirection(coords, cc.v2(1, 0), 1);
         let vertical = this.checkDirection(coords, cc.v2(0, -1), 1);
@@ -205,34 +219,113 @@ class Map {
     }
 }
 
-@ccclass
-export default class Game extends cc.Component {
+// Номер цвета по названию
+const selectColorEnum = cc.Enum({
+    Blue: 0,
+    Purple: 1,
+    Red: 2,
+    Yellow: 3,
+    Orange: 4,
+    Green: 5,
+});
 
+// Класс цвета по номеру
+const goalColorsEnum = cc.Enum({
+    0: Blue,
+    1: Purple,
+    2: Red,
+    3: Yellow,
+    4: Orange,
+    5: Green,
+});
+
+@ccclass("Gems")
+class Gems {
     @property(cc.SpriteFrame)
     spriteFrame: cc.SpriteFrame = null;
 
     @property(cc.Float)
-    animationSpeed: number = 0.5;
+    speed: number = 0.5;
+}
+
+class Counter {
+    @property(cc.Node)
+    node: cc.Node = null;
+
+    @property(cc.Integer)
+    number: number = 10;
+
+    @property({ type: selectColorEnum })
+    color = selectColorEnum.Red;
+
+    label: cc.Label;
+
+    init() {
+        this.label = this.node.getComponent(cc.Label);
+        this.label.string = this.number.toString();
+    }
+
+    set count(n: number) {
+        this.label.string = n.toString();
+        this.number = n;
+    }
+
+    get count() {
+        return this.number;
+    }
+}
+
+@ccclass("Turns")
+class Turns extends Counter {
+    @property(cc.Integer)
+    number: number = 12;
+}
+
+@ccclass("Goal")
+class Goal extends Counter {
+    goalColorClass: typeof Gem = goalColorsEnum[this.color];
+
+    isGemAGoal(gem: Gem) {
+        return (gem instanceof this.goalColorClass);
+    }
+}
+
+@ccclass
+export default class Game extends cc.Component {
+
+    @property(Gems)
+    gems: Gems = new Gems();
+
+    @property(Turns)
+    turns: Turns = new Turns();
+
+    @property(Goal)
+    goal: Goal = new Goal();
 
     gameMap: Map;
+
     timer: number = 0;
     noMoves: boolean = false;
     targetGem: Gem = null;
     canInteract: boolean = false;
 
     onLoad() {
+        // Задаем значения счетчикам
+        this.turns.init();
+        this.goal.init();
+
         // Cоздаем игровое поле по TiledMap
         let tiledMap = this.node.getComponentInChildren(cc.TiledMap);
         this.gameMap = new Map(tiledMap);
 
-        Gem.prototype.initGem = (self) => {
+        Gem.prototype.initGem = (self: Gem) => {
             // Передаём спрайт в класс Gem, потому что я не нашел как по-другому Т ^ Т
-            self.addComponent(cc.Sprite).spriteFrame = this.spriteFrame;
+            self.addComponent(cc.Sprite).spriteFrame = this.gems.spriteFrame;
             self.parent = tiledMap.node;
         };
 
         // При нажатии кнопки мыши берем начальный гем
-        Gem.prototype.onTouchStart = (self) => {
+        Gem.prototype.onTouchStart = (self: Gem) => {
             if (this.canInteract) {
                 if (this.targetGem) {
                     this.swapGems(this.targetGem, self);
@@ -243,7 +336,7 @@ export default class Game extends cc.Component {
         };
 
         // При отпускании кнопки мыши берем конечный гем и пытаемся поменять местами с начальным
-        Gem.prototype.onTouchEnd = (self) => {
+        Gem.prototype.onTouchEnd = (self: Gem) => {
             if (this.canInteract) this.swapGems(this.targetGem, self);
         };
     }
@@ -252,7 +345,7 @@ export default class Game extends cc.Component {
 
     update(dt) {
         this.timer += dt;
-        if (this.timer > this.animationSpeed) {
+        if (this.timer > this.gems.speed) {
             // Проверяем карту на возможность движения и комбинации
             if (!this.noMoves) {
                 this.timer = 0;
@@ -291,7 +384,7 @@ export default class Game extends cc.Component {
             // После перемещения сканируем карту на пустоты / комбинации
             setTimeout(
                 () => this.noMoves = false,
-                this.animationSpeed * 1000
+                this.gems.speed * 1000
             );
         }
     }
@@ -377,14 +470,14 @@ export default class Game extends cc.Component {
     // Убираем гем с экрана
     removeGem(gem: Gem) {
         // Анимация исчезновения
-        cc.tween(gem).to(this.animationSpeed, { scale: 0 }).start();
+        cc.tween(gem).to(this.gems.speed, { scale: 0 }).start();
         gem.destroy;
     }
 
     // Помещает гем в целевую ячейку и производит анимацию движения к ней
     moveGem(gem: Gem, moveTo: cc.Vec2) {
         cc.tween(gem)
-            .to(this.animationSpeed, { position: cc.v3(this.gameMap.getTilePosition(moveTo), 0) })
+            .to(this.gems.speed, { position: cc.v3(this.gameMap.getTilePosition(moveTo), 0) })
             // Правильный способ, но вызов .call() ломает анимацию движения!
             // .call(() => { this.makeNextMove = true })
             .start();
@@ -394,28 +487,32 @@ export default class Game extends cc.Component {
     newGem(coords: cc.Vec2): Gem {
         // Генерируем случайный гем, но исключаем комбинации более 2х в ряд
         let exeptions = this.gameMap.checkNewCombinations(coords);
-        let newGem = this.randomGem(exeptions);
+        let color = this.randomColor(exeptions);
+        // Хотя цвета имеют тип typeof Gem у них нет аргументов
+        let newGem = new color();
         newGem.scale = 0;
         let vector1 = this.gameMap.getTilePosition(coords);
         newGem.setPosition(vector1);
         newGem.setCoords(coords);
         // Анимация появление
-        cc.tween(newGem).to(this.animationSpeed, { scale: 1 }).start();
+        cc.tween(newGem).to(this.gems.speed, { scale: 1 }).start();
         return newGem;
     }
 
     // Выбираем случайный цвет с исключениями
-    randomGem(exeptions: Gem[]): Gem {
-        let colors = [Blue, Purple, Red, Yellow, Orange, Green];
-        for (let exeption of exeptions) {
-            for (let i = 0; i < colors.length; i++) {
-                // Убираем цвета исключений из массива
-                if (exeption instanceof colors[i]) {
-                    colors.splice(i, 1);
-                    break;
+    randomColor(exeptions?: Gem[]): typeof Gem {
+        let colors = Object.values(goalColorsEnum);
+        if (exeptions) {
+            for (let exeption of exeptions) {
+                for (let i = 0; i < colors.length; i++) {
+                    // Убираем цвета исключений из массива
+                    if (exeption instanceof colors[i]) {
+                        colors.splice(i, 1);
+                        break;
+                    }
                 }
             }
         }
-        return new colors[Math.floor(Math.random() * colors.length)];
+        return colors[Math.floor(Math.random() * colors.length)];
     }
 }
